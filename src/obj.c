@@ -1,0 +1,217 @@
+#include "obj.h"
+#include "math.h"
+
+void Obj_init (Obj *obj, ObjType type, double dbvalue, char chvalue) {  
+  obj->type       = type;
+  obj->dbvalue    = dbvalue;
+  obj->chvalue    = chvalue;
+  obj->prev       = NULL;
+  obj->next       = NULL;
+  obj->parent     = NULL;
+  obj->firstChild = NULL;
+  obj->lastChild  = NULL;
+}
+
+Obj *Obj_new (ObjType type, double dbvalue, char chvalue) {
+  Obj *ret = malloc(sizeof(Obj));
+  if (ret == NULL) return NULL;
+  Obj_init(ret, type, dbvalue, chvalue);
+  return ret;
+}
+
+void Obj_free (Obj *obj) {
+  Obj *child = obj->firstChild;
+  while (child) {
+    Obj *next = child->next;
+    Obj_free(child);
+    child = next;
+  }
+
+  if (obj->parent) {
+    if (obj->prev == NULL)
+      obj->parent->firstChild = obj->next;
+    else
+      obj->prev->next = obj->next;
+
+    if (obj->next == NULL)
+      obj->parent->lastChild = obj->prev;
+    else
+      obj->next->prev = obj->prev;
+    free(obj);
+  }
+}
+
+void Obj_adopt (Obj *parent, Obj *child) {
+  child->next = NULL;
+  if (parent->lastChild == NULL) {
+    child->prev = NULL;
+    parent->firstChild = child;
+  } else {
+    child->prev = parent->lastChild;
+    parent->lastChild->next = child;
+  }
+  parent->lastChild = child;
+  child->parent = parent; 
+}
+
+#define throw(err) {result.error = err; return result;}
+
+/* TODO */
+ObjComputeRet Obj_compute (Obj *obj) {
+  Obj *child;
+  ObjComputeRet result = {0, ObjComputeErr_none};
+
+  /* validation pass */ {
+    ObjType prevt = ObjType_void;
+    child = obj->firstChild;
+    while (child != NULL) {
+      switch (child->type) {
+        /* this is going to change when functions and implicit multiplicative
+           syntax like 5(3) is added */
+        case ObjType_var:
+        case ObjType_num:
+        case ObjType_paren:
+          if (prevt == ObjType_num
+           || prevt == ObjType_var
+           || prevt == ObjType_paren
+          ) throw(ObjComputeErr_syntax);
+          break;
+        case ObjType_oper:
+          if (obj->chvalue == '-') {
+            if (prevt == ObjType_void)
+              break;
+          } else if (prevt == ObjType_oper || prevt == ObjType_void) {
+            break;
+          }
+        case ObjType_void: break;
+      }
+      prevt = child->type;
+      child = child->next;
+    }
+  }
+
+  /* beginning negative */ {
+    if (obj->firstChild != NULL
+     && obj->firstChild->type == ObjType_oper
+     && obj->firstChild->chvalue == '-'
+    ) {
+      Obj_free(obj->firstChild);
+      if (obj->firstChild != NULL)
+        obj->firstChild->dbvalue *= -1;
+    }
+  }
+
+  /* parentheses pass */ {
+    child = obj->firstChild;
+    while (child != NULL) {
+      if (child->type == ObjType_paren) {
+        ObjComputeRet childResult = Obj_compute(child);
+        if (childResult.error != ObjComputeErr_none)
+          return childResult;
+        Obj_nmorph(child, childResult.value);
+      }
+      child = child->next;
+    }
+  }
+
+  /* exponent pass */ {
+    child = obj->firstChild;
+    while (child != NULL) {
+      if (child->type == ObjType_oper && child->chvalue == '^') {
+        Obj_nmorph(child, pow(child->prev->dbvalue, child->next->dbvalue));
+        Obj_free(child->prev);
+        Obj_free(child->next);
+      }
+      
+      child = child->next;
+    }
+  }
+
+  /* multiplication pass */ {
+    child = obj->firstChild;
+    while (child != NULL) {
+      if (child->type == ObjType_oper) {
+        if (child->chvalue == '*') {
+          Obj_nmorph(child, child->prev->dbvalue * child->next->dbvalue);
+        } else if (child->chvalue == '/') {
+          if (child->next->dbvalue == 0)
+            throw(ObjComputeErr_divBy0);
+          Obj_nmorph(child, child->prev->dbvalue / child->next->dbvalue);
+        } else goto multiplyNext;
+        
+        Obj_free(child->prev);
+        Obj_free(child->next);
+      }
+
+      multiplyNext:
+      child = child->next;
+    }
+  }
+
+  /* addition  pass */ {
+    child = obj->firstChild;
+    while (child != NULL) {
+      if (child->type == ObjType_oper) {
+        if (child->chvalue == '+') {
+          Obj_nmorph(child, child->prev->dbvalue + child->next->dbvalue);
+        } else if (child->chvalue == '-') {
+          Obj_nmorph(child, child->prev->dbvalue - child->next->dbvalue);
+        } else goto addNext;
+        
+        Obj_free(child->prev);
+        Obj_free(child->next);
+      }
+
+      addNext:
+      child = child->next;
+    }
+  }
+
+  result.value = obj->firstChild->dbvalue;
+  return result;
+}
+
+#undef throw
+
+void Obj_nmorph (Obj *obj, double value) {
+  obj->dbvalue = value;
+  obj->type = ObjType_num;
+}
+
+int Obj_isNum (Obj *obj) {
+  return obj->type = ObjType_num;
+}
+
+void Obj_dump (Obj *obj, int indent) {
+  int i = 0;
+  Obj *child = obj->firstChild;
+
+  switch (obj->type) {
+    case ObjType_paren:
+      printf("(       ");
+      break;
+    case ObjType_num:
+      printf("N%7.1f",    obj->dbvalue);
+      break;
+    case ObjType_oper:
+    case ObjType_var:
+      printf("%c       ", obj->chvalue);
+      break;
+    case ObjType_void:
+      printf("void    ");
+      break;
+  }
+
+  while (child != NULL) {
+    int j = indent + 8;
+    
+    if (i ++ > 0)
+      while (j --> 0)
+        putchar(' ');
+    
+    Obj_dump(child, indent + 8);
+    child = child->next;
+  }
+
+  if (i == 0) putchar('\n');
+}
