@@ -2,9 +2,10 @@
 
 #include <stdlib.h>
 #include <stdio.h>
+#include "mathext.h"
 
 typedef enum {
-  ObjType_void,
+  ObjType_void = 0,
   ObjType_paren,
   ObjType_num,
   ObjType_oper,
@@ -14,7 +15,9 @@ typedef enum {
 typedef enum {
   ObjComputeErr_none = 0,
   ObjComputeErr_syntax,
-  ObjComputeErr_divBy0
+  ObjComputeErr_divBy0,
+  ObjComputeErr_badOper,
+  ObjComputeErr_facOfNeg
 } ObjComputeErr;
 
 typedef struct {

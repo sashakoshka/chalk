@@ -77,6 +77,8 @@ int main(int argc, char **argv) {
         case '/':
         case '+':
         case '-':
+        case '!':
+        case ',':
           Obj_adopt(branch, Obj_new(ObjType_oper, 0, ch));
           break;
         
@@ -111,6 +113,12 @@ int main(int argc, char **argv) {
           break;
         case ObjComputeErr_divBy0:
           fprintf(stderr, "%s: ERR division by zero\n", argv[0]);
+          break;
+        case ObjComputeErr_badOper:
+          fprintf(stderr, "%s: ERR unrecognized operator\n", argv[0]);
+          break;
+        case ObjComputeErr_facOfNeg:
+          fprintf(stderr, "%s: ERR factorial of negative number\n", argv[0]);
           break;
       }
       

@@ -1,7 +1,15 @@
 # chalk
 
-Double precision command line calculator
+Double precision command line calculator that uses a tree structure to store
+mathematical expressions.
 
-Currently has the capability to do addition, subtraction, multiplication,
-division, and exponents. Can work with parentheses and identify negative
-numbers. Variables and functions coming soon.
+## Features
+
+- Parentheses
+- Exponents
+- Multiplication and division
+- Addition and subtraction
+- Negative numbers
+- Factorials
+
+Variables and functions coming soon

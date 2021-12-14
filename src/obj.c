@@ -1,5 +1,5 @@
 #include "obj.h"
-#include "math.h"
+#include <math.h>
 
 void Obj_init (Obj *obj, ObjType type, double dbvalue, char chvalue) {  
   obj->type       = type;
@@ -56,39 +56,9 @@ void Obj_adopt (Obj *parent, Obj *child) {
 
 #define throw(err) {result.error = err; return result;}
 
-/* TODO */
 ObjComputeRet Obj_compute (Obj *obj) {
   Obj *child;
   ObjComputeRet result = {0, ObjComputeErr_none};
-
-  /* validation pass */ {
-    ObjType prevt = ObjType_void;
-    child = obj->firstChild;
-    while (child != NULL) {
-      switch (child->type) {
-        /* this is going to change when functions and implicit multiplicative
-           syntax like 5(3) is added */
-        case ObjType_var:
-        case ObjType_num:
-        case ObjType_paren:
-          if (prevt == ObjType_num
-           || prevt == ObjType_var
-           || prevt == ObjType_paren
-          ) throw(ObjComputeErr_syntax);
-          break;
-        case ObjType_oper:
-          if (obj->chvalue == '-') {
-            if (prevt == ObjType_void)
-              break;
-          } else if (prevt == ObjType_oper || prevt == ObjType_void) {
-            break;
-          }
-        case ObjType_void: break;
-      }
-      prevt = child->type;
-      child = child->next;
-    }
-  }
 
   /* beginning negative */ {
     if (obj->firstChild != NULL
@@ -98,6 +68,74 @@ ObjComputeRet Obj_compute (Obj *obj) {
       Obj_free(obj->firstChild);
       if (obj->firstChild != NULL)
         obj->firstChild->dbvalue *= -1;
+    }
+  }
+
+  /* validation pass */ {
+    child = obj->firstChild;
+    while (child != NULL) {
+      ObjType nextt = ObjType_void,
+              prevt = ObjType_void;
+      if (child->next != NULL) nextt = child->next->type;
+      if (child->prev != NULL) prevt = child->prev->type;
+      /* printf("%i %i %i\n", prevt, child->type, nextt); */
+      switch (child->type) {
+        /* this is going to change when functions and implicit multiplicative
+           syntax like 5(3) is added */
+        case ObjType_var:
+        case ObjType_num:
+        case ObjType_paren:
+          if (prevt == ObjType_num
+           || prevt == ObjType_var
+           || prevt == ObjType_paren
+           || nextt == ObjType_num
+           || nextt == ObjType_var
+           || nextt == ObjType_paren
+          ) throw(ObjComputeErr_syntax);
+          break;
+        case ObjType_oper:
+          switch (child->chvalue) {
+            case '^':
+            case '*':
+            case '/':
+            case '+':
+            case '-':
+            case ',':
+              if (prevt == ObjType_void
+               || prevt == ObjType_oper
+               || nextt == ObjType_oper
+               || nextt == ObjType_void
+              ) throw(ObjComputeErr_syntax);
+              break;
+            case '!':
+              if (prevt == ObjType_oper || prevt == ObjType_void)
+                throw(ObjComputeErr_syntax);
+              break;
+            default:
+              throw(ObjComputeErr_badOper);
+          }
+        case ObjType_void: break;
+      }
+      prevt = child->type;
+      child = child->next;
+    }
+  }
+
+  /* single (left hand) input operator pass */ {
+    child = obj->firstChild;
+    while (child != NULL) {
+      switch (child->chvalue) {
+        case '!':
+          if (child->prev->dbvalue < 0)
+            throw(ObjComputeErr_facOfNeg);
+          Obj_nmorph(child, factorial(child->prev->dbvalue));
+          Obj_free(child->prev);
+          break;
+        default:
+          goto singleLOperNext;
+      }
+      singleLOperNext:
+      child = child->next;
     }
   }
 

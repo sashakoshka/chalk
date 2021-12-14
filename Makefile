@@ -5,7 +5,7 @@ STD=-pedantic -std=c89
 CFLAGS=$(WARN) $(STD)
 LIBS=-lm
 
-all: main obj
+all: main obj mathext
 	mkdir -p bin
 	$(CC) o/*.o -o bin/$(NAME) $(LIBS)
 
@@ -16,6 +16,10 @@ main:
 obj:
 	mkdir -p o
 	$(CC) src/obj.c -o o/obj.o -c $(CFLAGS)
+
+mathext:
+	mkdir -p o
+	$(CC) src/mathext.c -o o/mathext.o -c $(CFLAGS)
 
 run: all
 	./bin/$(NAME)
