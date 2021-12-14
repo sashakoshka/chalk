@@ -11,5 +11,8 @@ mathematical expressions.
 - Addition and subtraction
 - Negative numbers
 - Factorials
+- Modulo
 
-Variables and functions coming soon
+Variables and functions coming soon. When I add functions, there will be a
+dedicated square root function. Until then, to take the nth rooth of a number x,
+just do `x ^ (1 / n)`.

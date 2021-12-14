@@ -79,6 +79,7 @@ int main(int argc, char **argv) {
         case '-':
         case '!':
         case ',':
+        case '%':
           Obj_adopt(branch, Obj_new(ObjType_oper, 0, ch));
           break;
         

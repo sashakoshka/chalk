@@ -101,6 +101,7 @@ ObjComputeRet Obj_compute (Obj *obj) {
             case '+':
             case '-':
             case ',':
+            case '%':
               if (prevt == ObjType_void
                || prevt == ObjType_oper
                || nextt == ObjType_oper
@@ -169,13 +170,21 @@ ObjComputeRet Obj_compute (Obj *obj) {
     child = obj->firstChild;
     while (child != NULL) {
       if (child->type == ObjType_oper) {
-        if (child->chvalue == '*') {
-          Obj_nmorph(child, child->prev->dbvalue * child->next->dbvalue);
-        } else if (child->chvalue == '/') {
-          if (child->next->dbvalue == 0)
-            throw(ObjComputeErr_divBy0);
-          Obj_nmorph(child, child->prev->dbvalue / child->next->dbvalue);
-        } else goto multiplyNext;
+        switch (child->chvalue) {
+          case '*':
+            Obj_nmorph(child, child->prev->dbvalue * child->next->dbvalue);
+            break;
+          case '/':
+            if (child->next->dbvalue == 0)
+              throw(ObjComputeErr_divBy0);
+            Obj_nmorph(child, child->prev->dbvalue / child->next->dbvalue);
+            break;
+          case '%':
+            Obj_nmorph(child, fmod(child->prev->dbvalue, child->next->dbvalue));
+            break;
+          default:
+            goto multiplyNext;
+        }
         
         Obj_free(child->prev);
         Obj_free(child->next);
